@@ -1,5 +1,20 @@
 import { BankTransaction, PhonePeReceipt, TransactionMatch } from './types'
 
+/**
+ * Parse a bank statement file (CSV or Excel) and extract transactions
+ */
+export async function parseBankStatement(file: File): Promise<BankTransaction[]> {
+  const text = await file.text()
+  
+  if (file.name.toLowerCase().endsWith('.csv')) {
+    return parseCSV(text)
+  } else {
+    // For Excel files, we'll use a simplified CSV-like parsing
+    // In a real implementation, you might want to use a library like xlsx
+    throw new Error('Excel files not yet supported. Please convert to CSV format.')
+  }
+}
+
 export function parseCSV(csvText: string): BankTransaction[] {
   const lines = csvText.split('\n').filter(line => line.trim())
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase())

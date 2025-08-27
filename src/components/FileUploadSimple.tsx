@@ -3,9 +3,11 @@ import { Upload, FileText } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import type { BankTransaction } from '@/lib/types'
+import { parseBankStatement } from '@/lib/parser'
 
 interface FileUploadSimpleProps {
-  onFilesUploaded: (count: number) => void
+  onFilesUploaded: (transactions: BankTransaction[]) => void
 }
 
 export function FileUploadSimple({ onFilesUploaded }: FileUploadSimpleProps) {
@@ -20,10 +22,13 @@ export function FileUploadSimple({ onFilesUploaded }: FileUploadSimpleProps) {
       return
     }
     
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    onFilesUploaded(Math.floor(Math.random() * 50) + 10)
-    toast.success(`Imported ${Math.floor(Math.random() * 50) + 10} transactions`)
+    try {
+      const transactions = await parseBankStatement(file)
+      onFilesUploaded(transactions)
+      toast.success(`Imported ${transactions.length} transactions`)
+    } catch (error) {
+      toast.error('Failed to parse bank statement: ' + (error as Error).message)
+    }
   }, [onFilesUploaded])
   
   const handleDrag = useCallback((e: React.DragEvent) => {
