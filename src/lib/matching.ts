@@ -1,4 +1,5 @@
-import type { BankTransaction, PhonePeReceipt, TransactionMatch } from './types'
+import type { BankTransaction, PhonePeReceipt, TransactionMatch, Category } from './types'
+import { categorizeTransaction, type CategoryRule } from './categorization'
 
 /**
  * Transaction matching service that finds potential PhonePe receipt matches 
@@ -110,10 +111,12 @@ function findBestMatch(
 
 /**
  * Generate transaction matches between bank statements and receipts
+ * with automatic categorization applied
  */
 export function generateMatches(
   bankTransactions: BankTransaction[], 
-  receipts: PhonePeReceipt[]
+  receipts: PhonePeReceipt[],
+  categoryRules: CategoryRule[] = []
 ): TransactionMatch[] {
   const matches: TransactionMatch[] = []
   
@@ -124,10 +127,43 @@ export function generateMatches(
   for (const bankTxn of unmatchedBankTxns) {
     const bestMatch = findBestMatch(bankTxn, availableReceipts)
     
+    // Apply automatic categorization to the bank transaction
+    let categorizedBankTxn = bankTxn
+    if (!bankTxn.category && categoryRules.length > 0) {
+      const categorization = categorizeTransaction(bankTxn, categoryRules)
+      if (categorization.category && categorization.confidence >= 0.6) {
+        categorizedBankTxn = {
+          ...bankTxn,
+          category: categorization.category
+        }
+      }
+    }
+    
     if (bestMatch) {
+      // Apply categorization to receipt if not already categorized
+      let categorizedReceipt = bestMatch.receipt
+      if (!bestMatch.receipt.category && categoryRules.length > 0) {
+        const receiptCategorization = categorizeTransaction(bestMatch.receipt, categoryRules)
+        if (receiptCategorization.category && receiptCategorization.confidence >= 0.6) {
+          categorizedReceipt = {
+            ...bestMatch.receipt,
+            category: receiptCategorization.category
+          }
+        }
+      }
+      
+      // Use receipt category if bank transaction doesn't have one
+      const finalCategory = categorizedBankTxn.category || categorizedReceipt.category
+      if (finalCategory) {
+        categorizedBankTxn = {
+          ...categorizedBankTxn,
+          category: finalCategory
+        }
+      }
+      
       matches.push({
-        bankTransaction: bankTxn,
-        suggestedReceipt: bestMatch.receipt,
+        bankTransaction: categorizedBankTxn,
+        suggestedReceipt: categorizedReceipt,
         matchScore: bestMatch.score,
         matchReasons: bestMatch.reasons,
         status: 'pending'
@@ -136,12 +172,12 @@ export function generateMatches(
       // Mark receipt as temporarily matched to avoid duplicates
       const receiptIndex = availableReceipts.findIndex(r => r.id === bestMatch.receipt.id)
       if (receiptIndex >= 0) {
-        availableReceipts[receiptIndex] = { ...bestMatch.receipt, matched: true }
+        availableReceipts[receiptIndex] = { ...categorizedReceipt, matched: true }
       }
     } else {
-      // Include unmatched transactions too
+      // Include unmatched transactions too (with categorization if available)
       matches.push({
-        bankTransaction: bankTxn,
+        bankTransaction: categorizedBankTxn,
         suggestedReceipt: undefined,
         matchScore: 0,
         matchReasons: ['No suitable match found'],

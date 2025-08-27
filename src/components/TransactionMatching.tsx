@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, X, Eye, ArrowRight, Zap, Eye as EyeIcon } from '@phosphor-icons/react'
+import { Check, X, Eye, ArrowRight, Zap, Eye as EyeIcon, Bot } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +58,8 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
   }
   
   const guessCategory = (merchantOrDescription: string): Category => {
+    // This function is now deprecated since we have proper categorization rules
+    // But keeping it as a fallback
     const text = merchantOrDescription.toLowerCase()
     
     if (text.includes('swiggy') || text.includes('zomato') || text.includes('food') || text.includes('restaurant')) {
@@ -213,26 +215,37 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={selectedCategory[match.bankTransaction.id] || guessCategory(match.suggestedReceipt?.merchant || match.bankTransaction.description)}
-                        onValueChange={(value: Category) => 
-                          setSelectedCategory(prev => ({
-                            ...prev,
-                            [match.bankTransaction.id]: value
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-1">
+                        <Select
+                          value={selectedCategory[match.bankTransaction.id] || 
+                                 match.bankTransaction.category ||
+                                 match.suggestedReceipt?.category ||
+                                 guessCategory(match.suggestedReceipt?.merchant || match.bankTransaction.description)}
+                          onValueChange={(value: Category) => 
+                            setSelectedCategory(prev => ({
+                              ...prev,
+                              [match.bankTransaction.id]: value
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {(match.bankTransaction.category || match.suggestedReceipt?.category) && (
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <Bot size={12} />
+                            <span>Auto-categorized</span>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

@@ -6,7 +6,7 @@ export interface BankTransaction {
   vpa?: string
   description: string
   city?: string
-  category?: string
+  category?: Category
   matched?: boolean
   matchedReceiptId?: string
 }
@@ -17,7 +17,7 @@ export interface PhonePeReceipt {
   amount: number
   utr?: string
   merchant: string
-  category?: string
+  category?: Category
   imageUrl?: string
   extractedData: {
     confidence: number
