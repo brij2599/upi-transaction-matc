@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, X, Eye, ArrowRight, Lightning, Eye as EyeIcon, Robot, Brain, TrendUp, Target } from '@phosphor-icons/react'
+import { Check, X, Eye, ArrowRight, Lightning, Eye as EyeIcon, Robot, Brain, TrendUp, Target, Info, CheckCircle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import type { TransactionMatch, Category } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
@@ -23,6 +25,11 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
   const [showRejected, setShowRejected] = useState(false)
   const [feedbackText, setFeedbackText] = useState<{[key: string]: string}>({})
   const [showTrainingDialog, setShowTrainingDialog] = useState<string | null>(null)
+  const [trainingOptions, setTrainingOptions] = useState<{[key: string]: {
+    createRule: boolean;
+    isRecurring: boolean;
+    confidence: 'low' | 'medium' | 'high';
+  }}>({})
   
   const pendingMatches = matches.filter(m => m.status === 'pending')
   const approvedMatches = matches.filter(m => m.status === 'approved')
@@ -72,9 +79,23 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
     const category = selectedCategory[matchId] || 
                     (match.suggestedReceipt?.category as Category) || 
                     'Miscellaneous'
-    const feedback = feedbackText[matchId]
     
-    onMatchUpdate(matchId, 'approved', category, feedback)
+    // Construct detailed feedback with training options
+    const trainingInfo = trainingOptions[matchId]
+    const userFeedback = feedbackText[matchId]
+    
+    let enhancedFeedback = userFeedback || ''
+    
+    if (trainingInfo) {
+      const trainingDetails = []
+      if (trainingInfo.createRule) trainingDetails.push('Create new categorization rule')
+      if (trainingInfo.isRecurring) trainingDetails.push('This is a recurring transaction')
+      trainingDetails.push(`Confidence level: ${trainingInfo.confidence}`)
+      
+      enhancedFeedback = `${enhancedFeedback} [TRAINING: ${trainingDetails.join(', ')}]`.trim()
+    }
+    
+    onMatchUpdate(matchId, 'approved', category, enhancedFeedback)
     
     // Clear state and close dialog
     setSelectedCategory(prev => {
@@ -85,9 +106,13 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
       const { [matchId]: _, ...rest } = prev
       return rest
     })
+    setTrainingOptions(prev => {
+      const { [matchId]: _, ...rest } = prev
+      return rest
+    })
     setShowTrainingDialog(null)
     
-    toast.success('Match approved and training data recorded for better categorization')
+    toast.success('Match approved with detailed training feedback - system learning enhanced')
   }
   
   const handleReject = (matchId: string) => {
@@ -456,14 +481,14 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
       {/* Training Feedback Dialog */}
       {showTrainingDialog && (
         <Dialog open={!!showTrainingDialog} onOpenChange={() => setShowTrainingDialog(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-blue-500" />
-                Train Categorization System
+                Advanced Training Mode
               </DialogTitle>
               <DialogDescription>
-                Help improve automatic categorization by providing additional context about this transaction.
+                Provide detailed feedback to improve automatic categorization and matching accuracy.
               </DialogDescription>
             </DialogHeader>
             
@@ -475,8 +500,15 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                                     (match.suggestedReceipt?.category as Category) || 
                                     'Miscellaneous'
               
+              const currentTrainingOptions = trainingOptions[showTrainingDialog] || {
+                createRule: true,
+                isRecurring: false,
+                confidence: 'medium' as const
+              }
+              
               return (
                 <div className="space-y-6">
+                  {/* Transaction Details */}
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Bank Transaction</Label>
@@ -484,6 +516,9 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                         <p className="font-medium">{formatAmount(match.bankTransaction.amount)}</p>
                         <p className="text-sm text-muted-foreground">{match.bankTransaction.date}</p>
                         <p className="text-sm">{match.bankTransaction.description}</p>
+                        {match.bankTransaction.utr && (
+                          <p className="text-xs text-muted-foreground">UTR: {match.bankTransaction.utr}</p>
+                        )}
                       </div>
                     </div>
                     
@@ -494,49 +529,173 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                           <p className="font-medium">{match.suggestedReceipt.merchant}</p>
                           <p className="text-sm text-muted-foreground">{match.suggestedReceipt.date}</p>
                           <p className="text-sm">{formatAmount(match.suggestedReceipt.amount)}</p>
+                          {match.suggestedReceipt.utr && (
+                            <p className="text-xs text-muted-foreground">UTR: {match.suggestedReceipt.utr}</p>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
                   
-                  <Separator />
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Selected Category</Label>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-sm">
-                          {currentCategory}
-                        </Badge>
+                  {/* Match Quality Assessment */}
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-1">
+                        <p><strong>Match Quality:</strong> {match.matchScore}% confidence</p>
+                        <p><strong>Reasons:</strong> {match.matchReasons.join(', ')}</p>
                         {(match.bankTransaction.category || match.suggestedReceipt?.category) && (
-                          <div className="flex items-center gap-1 text-xs text-blue-600">
+                          <p className="flex items-center gap-1 text-blue-600">
                             <Robot size={12} />
-                            <span>Auto-detected</span>
-                          </div>
+                            <strong>Auto-detected category:</strong> {match.bankTransaction.category || match.suggestedReceipt?.category}
+                          </p>
                         )}
                       </div>
-                    </div>
-                    
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <Separator />
+                  
+                  {/* Category Selection */}
+                  <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="training-feedback">
-                        Training Feedback <span className="text-muted-foreground">(Optional)</span>
+                      <Label>Confirm Category</Label>
+                      <Select
+                        value={currentCategory}
+                        onValueChange={(value: Category) => 
+                          setSelectedCategory(prev => ({
+                            ...prev,
+                            [showTrainingDialog]: value
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIES.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {(match.bankTransaction.category || match.suggestedReceipt?.category) && 
+                       currentCategory !== (match.bankTransaction.category || match.suggestedReceipt?.category) && (
+                        <p className="text-sm text-orange-600">
+                          <Target size={12} className="inline mr-1" />
+                          You're overriding the system's automatic categorization
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  {/* Training Options */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">Training Options</Label>
+                    
+                    <div className="space-y-4 pl-4 border-l-2 border-blue-200">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="create-rule"
+                          checked={currentTrainingOptions.createRule}
+                          onCheckedChange={(checked) => 
+                            setTrainingOptions(prev => ({
+                              ...prev,
+                              [showTrainingDialog]: {
+                                ...currentTrainingOptions,
+                                createRule: checked as boolean
+                              }
+                            }))
+                          }
+                        />
+                        <Label htmlFor="create-rule" className="text-sm">
+                          Create/update categorization rule for similar transactions
+                        </Label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="is-recurring"
+                          checked={currentTrainingOptions.isRecurring}
+                          onCheckedChange={(checked) => 
+                            setTrainingOptions(prev => ({
+                              ...prev,
+                              [showTrainingDialog]: {
+                                ...currentTrainingOptions,
+                                isRecurring: checked as boolean
+                              }
+                            }))
+                          }
+                        />
+                        <Label htmlFor="is-recurring" className="text-sm">
+                          This is a recurring transaction (monthly bills, subscriptions, etc.)
+                        </Label>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm">Training confidence level:</Label>
+                        <Select
+                          value={currentTrainingOptions.confidence}
+                          onValueChange={(value: 'low' | 'medium' | 'high') => 
+                            setTrainingOptions(prev => ({
+                              ...prev,
+                              [showTrainingDialog]: {
+                                ...currentTrainingOptions,
+                                confidence: value
+                              }
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low - Pattern might vary</SelectItem>
+                            <SelectItem value="medium">Medium - Generally consistent</SelectItem>
+                            <SelectItem value="high">High - Always categorize this way</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  {/* Detailed Feedback */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="detailed-feedback" className="text-base font-medium">
+                        Detailed Training Feedback
                       </Label>
                       <Textarea
-                        id="training-feedback"
-                        placeholder="Provide context about why this transaction belongs to this category. For example: 'This is a monthly utility bill payment' or 'Regular grocery shopping at local store'. This helps the system learn better patterns."
+                        id="detailed-feedback"
+                        placeholder="Provide specific context about this transaction that will help the system learn better patterns:&#10;&#10;Examples:&#10;• 'This merchant uses different names but always shows XYZ in description'&#10;• 'Monthly subscription payment - amount is always exactly ₹299'&#10;• 'Local grocery store - categorize all similar UPI payments to Food & Dining'&#10;• 'This is a business expense, not personal shopping'&#10;&#10;The more specific you are, the better the system will learn to handle similar cases automatically."
                         value={feedbackText[showTrainingDialog] || ''}
                         onChange={(e) => setFeedbackText(prev => ({
                           ...prev,
                           [showTrainingDialog]: e.target.value
                         }))}
-                        className="min-h-[80px]"
+                        className="min-h-[120px]"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        This feedback helps the system learn patterns for future automatic categorization.
-                      </p>
+                      <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                        <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-700">
+                          <p className="font-medium mb-1">Training Impact:</p>
+                          <ul className="text-xs space-y-1">
+                            {currentTrainingOptions.createRule && <li>• New categorization patterns will be learned</li>}
+                            {currentTrainingOptions.isRecurring && <li>• System will prioritize consistency for this merchant</li>}
+                            <li>• Confidence level: {currentTrainingOptions.confidence} - affects future auto-categorization</li>
+                            <li>• Your feedback helps improve matching for similar transactions</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
+                  {/* Action Buttons */}
                   <div className="flex items-center justify-between pt-4">
                     <Button
                       variant="outline"
@@ -544,13 +703,22 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                     >
                       Cancel
                     </Button>
-                    <Button
-                      onClick={() => handleApproveWithTraining(showTrainingDialog)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <TrendUp size={14} className="mr-2" />
-                      Approve & Train System
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleApprove(showTrainingDialog)}
+                      >
+                        <Check size={14} className="mr-2" />
+                        Simple Approve
+                      </Button>
+                      <Button
+                        onClick={() => handleApproveWithTraining(showTrainingDialog)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <TrendUp size={14} className="mr-2" />
+                        Approve & Train System
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )

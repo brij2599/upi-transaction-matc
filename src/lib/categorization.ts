@@ -233,13 +233,14 @@ export function categorizeTransaction(
 }
 
 /**
- * Learn new categorization patterns from user-approved matches
+ * Learn new categorization patterns from user-approved matches with enhanced training feedback
  */
 export function learnFromApprovedMatch(
   transaction: BankTransaction,
   receipt: PhonePeReceipt | undefined,
   approvedCategory: Category,
-  existingRules: CategoryRule[]
+  existingRules: CategoryRule[],
+  trainingFeedback?: string
 ): CategoryRule[] {
   const updatedRules = [...existingRules]
   
@@ -247,51 +248,119 @@ export function learnFromApprovedMatch(
   const merchantName = receipt?.merchant || ''
   const description = transaction.description || ''
   
-  // Create new keywords from the transaction
-  const newKeywords = [
+  // Parse training feedback for additional insights
+  const shouldCreateRule = !trainingFeedback?.includes('[TRAINING:') || trainingFeedback.includes('Create new categorization rule')
+  const isRecurring = trainingFeedback?.includes('This is a recurring transaction') || false
+  const confidenceLevel = trainingFeedback?.includes('Confidence level: high') ? 'high' :
+                          trainingFeedback?.includes('Confidence level: low') ? 'low' : 'medium'
+  
+  // Create new keywords from the transaction and feedback
+  const baseKeywords = [
     ...merchantName.toLowerCase().split(/\s+/).filter(word => word.length > 3),
     ...description.toLowerCase().split(/\s+/).filter(word => word.length > 3)
-  ].filter((word, index, array) => array.indexOf(word) === index) // Remove duplicates
+  ]
   
-  if (newKeywords.length === 0) return updatedRules
+  // Extract additional keywords from training feedback
+  const feedbackKeywords = trainingFeedback ? 
+    trainingFeedback.toLowerCase()
+      .split(/\s+/)
+      .filter(word => word.length > 3 && !word.includes('[') && !word.includes(':'))
+      .slice(0, 3) : [] // Limit to prevent noise
+  
+  const allKeywords = [...baseKeywords, ...feedbackKeywords]
+    .filter((word, index, array) => array.indexOf(word) === index) // Remove duplicates
+    .filter(word => !['training', 'system', 'transaction', 'payment'].includes(word)) // Filter common noise words
+  
+  if (allKeywords.length === 0 && !shouldCreateRule) return updatedRules
+  
+  // Determine confidence based on training feedback
+  let baseConfidence = 0.7
+  if (confidenceLevel === 'high') baseConfidence = 0.9
+  else if (confidenceLevel === 'low') baseConfidence = 0.5
+  
+  // Boost confidence for recurring transactions
+  if (isRecurring) baseConfidence = Math.min(0.95, baseConfidence + 0.1)
   
   // Find existing rule for this category that might be enhanced
   const existingRule = updatedRules.find(rule => 
     rule.category === approvedCategory && 
     rule.createdBy === 'user' &&
-    newKeywords.some(keyword => 
+    (allKeywords.some(keyword => 
       rule.keywords.includes(keyword) || rule.patterns.some(pattern => pattern.includes(keyword))
-    )
+    ) || (merchantName && rule.patterns.some(pattern => pattern.includes(merchantName.toLowerCase()))))
   )
   
-  if (existingRule) {
-    // Enhance existing rule
+  if (existingRule && shouldCreateRule) {
+    // Enhance existing rule with training feedback
+    const enhancedKeywords = [...existingRule.keywords, ...allKeywords.filter(k => !existingRule.keywords.includes(k))].slice(0, 15)
+    const enhancedPatterns = merchantName ? 
+      [...existingRule.patterns, merchantName.toLowerCase()].filter((p, i, arr) => arr.indexOf(p) === i).slice(0, 10) : 
+      existingRule.patterns
+    
     const enhancedRule = {
       ...existingRule,
-      keywords: [...existingRule.keywords, ...newKeywords.filter(k => !existingRule.keywords.includes(k))].slice(0, 10), // Limit keywords
-      patterns: merchantName ? [...existingRule.patterns, merchantName.toLowerCase()].slice(0, 10) : existingRule.patterns, // Limit patterns
+      name: isRecurring ? `${existingRule.name} (Recurring)` : existingRule.name,
+      keywords: enhancedKeywords,
+      patterns: enhancedPatterns,
       usageCount: existingRule.usageCount + 1,
       lastUsed: new Date().toISOString(),
-      confidence: Math.min(0.95, existingRule.confidence + 0.05) // Increase confidence slightly
+      confidence: Math.min(0.95, Math.max(existingRule.confidence, baseConfidence)),
+      metadata: {
+        ...existingRule.metadata,
+        isRecurring,
+        trainingFeedback: trainingFeedback?.substring(0, 200), // Store first 200 chars of feedback
+        lastTrainingUpdate: new Date().toISOString()
+      }
     }
     
     const ruleIndex = updatedRules.findIndex(r => r.id === existingRule.id)
     updatedRules[ruleIndex] = enhancedRule
-  } else {
-    // Create new user-defined rule
+  } else if (shouldCreateRule) {
+    // Create new user-defined rule with training insights
+    const ruleName = isRecurring ? 
+      `Recurring ${approvedCategory} - ${merchantName || 'User Rule'}` :
+      `User Rule - ${approvedCategory} (${merchantName || 'Custom'})`
+    
     const newRule: CategoryRule = {
       id: generateRuleId(),
-      name: `User Rule - ${approvedCategory}`,
+      name: ruleName.substring(0, 50), // Limit name length
       category: approvedCategory,
       patterns: merchantName ? [merchantName.toLowerCase()] : [],
-      keywords: newKeywords.slice(0, 5), // Limit initial keywords
-      confidence: 0.7, // Start with moderate confidence
+      keywords: allKeywords.slice(0, 10), // Limit initial keywords
+      confidence: baseConfidence,
       createdBy: 'user',
       usageCount: 1,
-      lastUsed: new Date().toISOString()
+      lastUsed: new Date().toISOString(),
+      metadata: {
+        isRecurring,
+        trainingFeedback: trainingFeedback?.substring(0, 200),
+        createdFromTraining: true,
+        confidenceLevel
+      }
     }
     
     updatedRules.push(newRule)
+  }
+  
+  // If this was a correction of auto-categorization, reduce confidence of conflicting rules
+  const autoDetectedCategory = transaction.category || receipt?.category
+  if (autoDetectedCategory && autoDetectedCategory !== approvedCategory) {
+    updatedRules.forEach(rule => {
+      if (rule.category === autoDetectedCategory) {
+        const matchesCurrentTransaction = 
+          allKeywords.some(keyword => rule.keywords.includes(keyword)) ||
+          (merchantName && rule.patterns.some(pattern => pattern.includes(merchantName.toLowerCase())))
+        
+        if (matchesCurrentTransaction) {
+          rule.confidence = Math.max(0.3, rule.confidence - 0.1)
+          rule.metadata = {
+            ...rule.metadata,
+            lastCorrected: new Date().toISOString(),
+            correctionCount: (rule.metadata?.correctionCount || 0) + 1
+          }
+        }
+      }
+    })
   }
   
   return updatedRules

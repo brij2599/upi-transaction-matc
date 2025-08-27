@@ -81,17 +81,20 @@ function App() {
       const currentMatch = matches.find(m => m.bankTransaction.id === matchId)
       
       if (currentMatch && category && categoryRules) {
-        // Learn from the approved categorization
+        // Learn from the approved categorization with training feedback
         const updatedRules = learnFromApprovedMatch(
           currentMatch.bankTransaction,
           currentMatch.suggestedReceipt,
           category,
-          categoryRules
+          categoryRules,
+          feedback // Pass the training feedback
         )
         setCategoryRules(updatedRules)
         
-        // If feedback was provided, show additional success message
-        if (feedback && feedback.trim()) {
+        // Show different success messages based on feedback complexity
+        if (feedback && feedback.includes('[TRAINING:')) {
+          toast.success(`Match approved with advanced training - enhanced system learning from detailed feedback`)
+        } else if (feedback && feedback.trim()) {
           toast.success(`Match approved with training feedback - system will learn from this pattern`)
         } else {
           toast.success(`Match approved and categorization learned`)

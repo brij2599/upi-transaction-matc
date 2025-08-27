@@ -44,6 +44,15 @@ export interface CategoryRule {
   createdBy: 'system' | 'user'
   usageCount: number
   lastUsed?: string
+  metadata?: {
+    isRecurring?: boolean
+    trainingFeedback?: string
+    createdFromTraining?: boolean
+    confidenceLevel?: 'low' | 'medium' | 'high'
+    lastTrainingUpdate?: string
+    lastCorrected?: string
+    correctionCount?: number
+  }
 }
 
 export interface User {
