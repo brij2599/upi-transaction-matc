@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Upload, Camera, ArrowsLeftRight, Download, ChartBar, Play, Gear, List } from '@phosphor-icons/react'
+import { Upload, Camera, ArrowsLeftRight, Download, ChartBar, Play, Gear, List, Tag } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { TransactionMatching } from '@/components/TransactionMatching'
 import { ExportData } from '@/components/ExportData'
 import { SpendingReport } from '@/components/SpendingReport'
 import { CategoryRulesManager } from '@/components/CategoryRulesManager'
+import { CategoriesAdmin } from '@/components/CategoriesAdmin'
 import { CategorizationInsights } from '@/components/CategorizationInsights'
 import { BulkTraining } from '@/components/BulkTraining'
 import { TransactionsList } from '@/components/TransactionsList'
@@ -231,7 +232,7 @@ function App() {
       
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList className="grid grid-cols-8 w-full max-w-6xl">
+          <TabsList className="grid grid-cols-9 w-full max-w-7xl">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload size={16} />
               <span className="hidden sm:inline">Upload</span>
@@ -252,7 +253,11 @@ function App() {
               <Play size={16} />
               <span className="hidden sm:inline">Bulk</span>
             </TabsTrigger>
-            <TabsTrigger value="categories" className="flex items-center gap-2">
+            <TabsTrigger value="categories-admin" className="flex items-center gap-2">
+              <Tag size={16} />
+              <span className="hidden sm:inline">Categories</span>
+            </TabsTrigger>
+            <TabsTrigger value="rules" className="flex items-center gap-2">
               <Gear size={16} />
               <span className="hidden sm:inline">Rules</span>
             </TabsTrigger>
@@ -355,7 +360,11 @@ function App() {
             />
           </TabsContent>
           
-          <TabsContent value="categories">
+          <TabsContent value="categories-admin">
+            <CategoriesAdmin />
+          </TabsContent>
+          
+          <TabsContent value="rules">
             <CategoryRulesManager 
               rules={categoryRules || []}
               onRulesUpdate={setCategoryRules}
