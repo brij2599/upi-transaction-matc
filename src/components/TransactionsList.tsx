@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { Search, Filter, Tag, Calendar, ArrowUpDown, Check, X, Edit2 } from '@phosphor-icons/react'
+import { Search, Filter, Tag, Calendar, ArrowUpDown, Check, X, Edit2, Plus } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -141,6 +141,29 @@ export function TransactionsList({ transactions, onTransactionsUpdate, categoryR
     }
 
     setEditingTransaction(null)
+  }
+
+  const handleQuickCategorize = (transactionId: string, category: Category) => {
+    const transaction = transactions.find(t => t.id === transactionId)
+    if (!transaction) return
+
+    const updatedTransactions = transactions.map(t => 
+      t.id === transactionId ? { ...t, category } : t
+    )
+
+    onTransactionsUpdate(updatedTransactions)
+
+    // Learn from quick categorization
+    const updatedRules = learnFromApprovedMatch(
+      transaction,
+      null, // No receipt data for manual categorization
+      category,
+      categoryRules,
+      `Quick categorization: User selected ${category}`
+    )
+    onRulesUpdate(updatedRules)
+    
+    toast.success(`Transaction categorized as ${category}`)
   }
 
   const handleBulkCategorize = (category: Category) => {
@@ -363,6 +386,64 @@ export function TransactionsList({ transactions, onTransactionsUpdate, categoryR
                         {transaction.amount < 0 ? 'Debit' : 'Credit'}
                       </p>
                     </div>
+                    
+                    {/* Quick Categorization */}
+                    {!transaction.category && (
+                      <div className="flex items-center gap-2">
+                        {/* Quick category buttons for common categories */}
+                        <div className="hidden lg:flex gap-1">
+                          {['Food & Dining', 'Shopping', 'Travel & Transport'].map(category => (
+                            <Button
+                              key={category}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleQuickCategorize(transaction.id, category as Category)}
+                              className="h-7 px-2 text-xs"
+                              title={`Categorize as ${category}`}
+                            >
+                              {category === 'Food & Dining' && '🍽️'}
+                              {category === 'Shopping' && '🛍️'}
+                              {category === 'Travel & Transport' && '🚗'}
+                            </Button>
+                          ))}
+                        </div>
+                        
+                        {/* Full category selector */}
+                        <Select onValueChange={(category: Category) => handleQuickCategorize(transaction.id, category)}>
+                          <SelectTrigger className="w-[120px] h-8 text-xs">
+                            <Plus size={12} className="mr-1" />
+                            <SelectValue placeholder="Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map(category => (
+                              <SelectItem key={category} value={category} className="text-xs">
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    {/* Change existing category */}
+                    {transaction.category && (
+                      <Select 
+                        value={transaction.category} 
+                        onValueChange={(category: Category) => handleQuickCategorize(transaction.id, category)}
+                      >
+                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                          <Tag size={12} className="mr-1" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIES.map(category => (
+                            <SelectItem key={category} value={category} className="text-xs">
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     
                     <Dialog>
                       <DialogTrigger asChild>
