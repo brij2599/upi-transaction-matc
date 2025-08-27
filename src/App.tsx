@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Upload, Camera, ArrowsLeftRight, Download, ChartBar, Play, Gear } from '@phosphor-icons/react'
+import { Upload, Camera, ArrowsLeftRight, Download, ChartBar, Play, Gear, List } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { SpendingReport } from '@/components/SpendingReport'
 import { CategoryRulesManager } from '@/components/CategoryRulesManager'
 import { CategorizationInsights } from '@/components/CategorizationInsights'
 import { BulkTraining } from '@/components/BulkTraining'
+import { TransactionsList } from '@/components/TransactionsList'
 import { useKV } from '@github/spark/hooks'
 import type { PhonePeReceipt, BankTransaction, TransactionMatch, Category, CategoryRule } from '@/lib/types'
 import { generateMatches, applyMatches } from '@/lib/matching'
@@ -230,7 +231,7 @@ function App() {
       
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList className="grid grid-cols-7 w-full max-w-5xl">
+          <TabsList className="grid grid-cols-8 w-full max-w-6xl">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload size={16} />
               <span className="hidden sm:inline">Upload</span>
@@ -238,6 +239,10 @@ function App() {
             <TabsTrigger value="receipts" className="flex items-center gap-2">
               <Camera size={16} />
               <span className="hidden sm:inline">Receipts</span>
+            </TabsTrigger>
+            <TabsTrigger value="transactions" className="flex items-center gap-2">
+              <List size={16} />
+              <span className="hidden sm:inline">Transactions</span>
             </TabsTrigger>
             <TabsTrigger value="matching" className="flex items-center gap-2">
               <ArrowsLeftRight size={16} />
@@ -321,6 +326,15 @@ function App() {
             <ReceiptUpload 
               receipts={receipts || []} 
               onReceiptsUpdate={(newReceipts) => setReceipts(newReceipts)} 
+            />
+          </TabsContent>
+          
+          <TabsContent value="transactions">
+            <TransactionsList
+              transactions={bankTransactions || []}
+              onTransactionsUpdate={setBankTransactions}
+              categoryRules={categoryRules || []}
+              onRulesUpdate={setCategoryRules}
             />
           </TabsContent>
           

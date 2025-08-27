@@ -9,6 +9,7 @@ export interface BankTransaction {
   category?: Category
   matched?: boolean
   matchedReceiptId?: string
+  notes?: string
 }
 
 export interface PhonePeReceipt {
