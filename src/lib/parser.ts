@@ -61,26 +61,98 @@ export function extractReceiptData(text: string): Partial<PhonePeReceipt> {
   let utr = ''
   let date = ''
   
-  for (const line of lines) {
-    if (line.match(/₹\s*[\d,]+/)) {
-      const match = line.match(/₹\s*([\d,]+(?:\.\d{2})?)/)
-      if (match) {
-        amount = parseFloat(match[1].replace(/,/g, ''))
+  // Enhanced patterns for PhonePe receipts
+  const amountPatterns = [
+    /₹\s*([\d,]+(?:\.\d{1,2})?)/g,  // ₹1,250.00 or ₹1250
+    /(?:Amount|Paid|Rs\.?)\s*:?\s*₹?\s*([\d,]+(?:\.\d{1,2})?)/gi,
+    /(?:Total|Amount)\s+₹\s*([\d,]+(?:\.\d{1,2})?)/gi
+  ]
+  
+  const utrPatterns = [
+    /(?:UPI Transaction ID|Transaction ID|Txn ID|UTR|Reference)\s*:?\s*(\d{12})/gi,
+    /(\d{12})/g  // Any 12-digit number as fallback
+  ]
+  
+  const datePatterns = [
+    /(\d{1,2}\/\d{1,2}\/\d{4})/g,     // DD/MM/YYYY
+    /(\d{1,2}-\d{1,2}-\d{4})/g,      // DD-MM-YYYY  
+    /(\d{4}-\d{1,2}-\d{1,2})/g,      // YYYY-MM-DD
+    /(\d{1,2}\s+\w+\s+\d{4})/g       // 15 Dec 2023
+  ]
+  
+  const merchantPatterns = [
+    /(?:To|Merchant|Paid to)\s*:?\s*([A-Za-z0-9\s&.'-]+)$/gmi,
+    /^([A-Za-z][A-Za-z0-9\s&.'-]{2,30})$/gm  // Line that looks like merchant name
+  ]
+  
+  const fullText = text.toLowerCase()
+  
+  // Extract amount
+  for (const pattern of amountPatterns) {
+    const matches = Array.from(text.matchAll(pattern))
+    for (const match of matches) {
+      const extractedAmount = parseFloat(match[1].replace(/,/g, ''))
+      if (!isNaN(extractedAmount) && extractedAmount > 0) {
+        amount = Math.max(amount, extractedAmount) // Take the largest amount found
       }
     }
-    
-    if (line.match(/\d{12}/)) {
-      utr = line.match(/(\d{12})/)?.[1] || ''
-    }
-    
-    if (line.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {
-      date = parseDate(line.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '')
-    }
-    
-    if (!merchant && line.length > 3 && !line.includes('PhonePe') && !line.includes('₹') && !line.match(/\d{6,}/)) {
-      merchant = line
+  }
+  
+  // Extract UTR/Transaction ID
+  for (const pattern of utrPatterns) {
+    const matches = Array.from(text.matchAll(pattern))
+    if (matches.length > 0) {
+      utr = matches[0][1]
+      break
     }
   }
+  
+  // Extract date
+  for (const pattern of datePatterns) {
+    const matches = Array.from(text.matchAll(pattern))
+    if (matches.length > 0) {
+      date = parseDate(matches[0][1])
+      break
+    }
+  }
+  
+  // Extract merchant name - more sophisticated approach
+  const excludeWords = ['phonepe', 'payment', 'successful', 'paid', 'amount', 'total', 'transaction', 'upi', 'date', 'from', 'via', 'receipt', 'id', 'ref']
+  
+  for (const line of lines) {
+    if (line.length < 3 || line.length > 50) continue
+    
+    const cleanLine = line.toLowerCase()
+    
+    // Skip lines that contain excluded words or patterns
+    if (excludeWords.some(word => cleanLine.includes(word))) continue
+    if (cleanLine.match(/[₹@]/)) continue
+    if (cleanLine.match(/\d{6,}/)) continue // Skip lines with long numbers
+    if (cleanLine.match(/^\d+$/)) continue // Skip pure numbers
+    
+    // Look for lines that might be merchant names
+    if (line.match(/^[A-Za-z][A-Za-z0-9\s&.'-]{2,}$/)) {
+      merchant = line
+      break
+    }
+  }
+  
+  // Enhanced merchant extraction using patterns
+  if (!merchant) {
+    for (const pattern of merchantPatterns) {
+      const matches = Array.from(text.matchAll(pattern))
+      if (matches.length > 0) {
+        const extractedMerchant = matches[0][1].trim()
+        if (extractedMerchant.length > 2 && extractedMerchant.length < 50) {
+          merchant = extractedMerchant
+          break
+        }
+      }
+    }
+  }
+  
+  // Apply common merchant name corrections
+  merchant = cleanMerchantName(merchant)
   
   return {
     amount: amount || 0,
@@ -88,6 +160,44 @@ export function extractReceiptData(text: string): Partial<PhonePeReceipt> {
     utr,
     date: date || new Date().toISOString().split('T')[0]
   }
+}
+
+/**
+ * Clean and standardize merchant names
+ */
+function cleanMerchantName(merchant: string): string {
+  if (!merchant) return ''
+  
+  // Remove common prefixes/suffixes
+  let cleaned = merchant
+    .replace(/^(To:|Paid to:|Merchant:)/gi, '')
+    .replace(/\s+(Online|Digital|Payments?|Services?)$/gi, '')
+    .trim()
+  
+  // Capitalize first letter of each word
+  cleaned = cleaned.replace(/\b\w+/g, word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  )
+  
+  // Handle common merchant aliases
+  const merchantAliases = {
+    'Swiggy': ['swgy', 'swiggy online'],
+    'Zomato': ['zomato online', 'zomato digital'],
+    'Amazon': ['amazon pay', 'amazon payments', 'amzn'],
+    'Flipkart': ['flipkart pay', 'fkrt'],
+    'Paytm': ['paytm payments'],
+    'Google Pay': ['gpay', 'google payments'],
+    'Uber': ['uber india', 'uber technologies'],
+    'Ola': ['ola cabs', 'ola mobility']
+  }
+  
+  for (const [standard, aliases] of Object.entries(merchantAliases)) {
+    if (aliases.some(alias => cleaned.toLowerCase().includes(alias.toLowerCase()))) {
+      return standard
+    }
+  }
+  
+  return cleaned
 }
 
 export function matchTransactions(

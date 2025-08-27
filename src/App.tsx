@@ -5,9 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast, Toaster } from 'sonner'
 import { FileUploadSimple } from '@/components/FileUploadSimple'
+import { ReceiptUpload } from '@/components/ReceiptUpload'
+import { useKV } from '@github/spark/hooks'
+import type { PhonePeReceipt } from '@/lib/types'
 
 function App() {
   const [transactionCount, setTransactionCount] = useState(0)
+  const [receipts, setReceipts] = useKV<PhonePeReceipt[]>('phonepe-receipts', [])
   
   return (
     <div className="min-h-screen bg-background">
@@ -25,6 +29,10 @@ function App() {
                 <div className="text-center">
                   <p className="font-semibold text-lg">{transactionCount}</p>
                   <p className="text-muted-foreground">Bank Txns</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-lg">{receipts.length}</p>
+                  <p className="text-muted-foreground">Receipts</p>
                 </div>
               </div>
             </div>
@@ -87,14 +95,10 @@ function App() {
           </TabsContent>
           
           <TabsContent value="receipts">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload PhonePe Receipts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Receipts functionality coming soon</p>
-              </CardContent>
-            </Card>
+            <ReceiptUpload 
+              receipts={receipts} 
+              onReceiptsUpdate={(newReceipts) => setReceipts(newReceipts)} 
+            />
           </TabsContent>
           
           <TabsContent value="matching">

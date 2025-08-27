@@ -16,7 +16,7 @@ interface ReceiptUploadProps {
 
 export function ReceiptUpload({ receipts, onReceiptsUpdate }: ReceiptUploadProps) {
   const [dragActive, setDragActive] = useState(false)
-  const { processImage, isProcessing } = useOCR()
+  const { processImage, isProcessing, progress } = useOCR()
   
   const handleFiles = useCallback(async (files: FileList | null) => {
     if (!files?.length) return
@@ -111,6 +111,12 @@ export function ReceiptUpload({ receipts, onReceiptsUpdate }: ReceiptUploadProps
                 <div>
                   <p className="font-medium">Processing receipt...</p>
                   <p className="text-sm text-muted-foreground">Extracting transaction data</p>
+                  {progress > 0 && (
+                    <div className="mt-3">
+                      <Progress value={progress} className="w-full" />
+                      <p className="text-xs text-muted-foreground mt-1">{progress}% complete</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
