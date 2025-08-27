@@ -27,7 +27,7 @@ export function useOCR() {
       // Configure worker for better text recognition
       await worker.setParameters({
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789₹.,/:-@() ',
-        tessedit_pageseg_mode: '6', // Uniform block of text
+        tessedit_pageseg_mode: 6 as any, // Uniform block of text
         tessedit_ocr_engine_mode: '1', // Neural nets LSTM engine
       })
       

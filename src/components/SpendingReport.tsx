@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { TrendUp, Calendar, PieChart, BarChart3, ArrowUpRight, ArrowDownRight } from '@phosphor-icons/react'
+import { TrendUp, Calendar, ChartPie, ChartBar, ArrowUpRight, ArrowDownRight } from '@phosphor-icons/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -143,7 +143,7 @@ export function SpendingReport({ matches }: SpendingReportProps) {
       <Card>
         <CardContent className="py-8">
           <div className="text-center text-muted-foreground">
-            <BarChart3 size={48} className="mx-auto mb-4 opacity-50" />
+            <ChartBar size={48} className="mx-auto mb-4 opacity-50" />
             <p>No approved transactions to analyze yet.</p>
             <p className="text-sm mt-1">Approve some transaction matches to generate spending reports.</p>
           </div>

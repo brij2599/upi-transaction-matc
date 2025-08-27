@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Upload, Camera, ArrowLeftRight, Download, BarChart3, Play, Settings } from '@phosphor-icons/react'
+import { Upload, Camera, ArrowsLeftRight, Download, ChartBar, Play, Gear } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,10 +12,10 @@ import { SpendingReport } from '@/components/SpendingReport'
 import { CategoryRulesManager } from '@/components/CategoryRulesManager'
 import { CategorizationInsights } from '@/components/CategorizationInsights'
 import { useKV } from '@github/spark/hooks'
-import type { PhonePeReceipt, BankTransaction, TransactionMatch, Category } from '@/lib/types'
+import type { PhonePeReceipt, BankTransaction, TransactionMatch, Category, CategoryRule } from '@/lib/types'
 import { generateMatches, applyMatches } from '@/lib/matching'
 import { loadDemoData } from '@/lib/demo-data'
-import { initializeDefaultRules, learnFromApprovedMatch, updateRuleUsage, type CategoryRule } from '@/lib/categorization'
+import { initializeDefaultRules, learnFromApprovedMatch, updateRuleUsage } from '@/lib/categorization'
 
 function App() {
   const [transactionCount, setTransactionCount] = useState(0)
@@ -26,16 +26,16 @@ function App() {
   
   // Initialize default categorization rules on first load
   useEffect(() => {
-    if (categoryRules.length === 0) {
+    if (categoryRules && categoryRules.length === 0) {
       const defaultRules = initializeDefaultRules()
       setCategoryRules(defaultRules)
       toast.success(`Initialized ${defaultRules.length} categorization rules`)
     }
-  }, [categoryRules.length, setCategoryRules])
+  }, [categoryRules?.length, setCategoryRules])
   
   // Generate matches when bank transactions, receipts, or rules change
   const generatedMatches = useMemo(() => {
-    if (bankTransactions.length === 0 || receipts.length === 0) {
+    if (!bankTransactions || !receipts || !categoryRules || bankTransactions.length === 0 || receipts.length === 0) {
       return []
     }
     return generateMatches(bankTransactions, receipts, categoryRules)
@@ -43,7 +43,7 @@ function App() {
   
   // Update matches when new matches are generated
   useEffect(() => {
-    if (generatedMatches.length > 0 && JSON.stringify(generatedMatches) !== JSON.stringify(matches)) {
+    if (generatedMatches.length > 0 && matches && JSON.stringify(generatedMatches) !== JSON.stringify(matches)) {
       setMatches(generatedMatches)
       
       // Count auto-categorized transactions
@@ -59,9 +59,12 @@ function App() {
     }
   }, [generatedMatches, matches, setMatches])
   
-  const handleMatchUpdate = (matchId: string, status: 'approved' | 'rejected', category?: Category) => {
-    setMatches(currentMatches => 
-      currentMatches.map(match => {
+  const handleMatchUpdate = (matchId: string, status: 'approved' | 'rejected', category?: Category, feedback?: string) => {
+    if (!matches) return
+    
+    setMatches(currentMatches => {
+      if (!currentMatches) return []
+      return currentMatches.map(match => {
         if (match.bankTransaction.id === matchId) {
           return { 
             ...match, 
@@ -71,13 +74,13 @@ function App() {
         }
         return match
       })
-    )
+    })
     
     // If approved, update bank transactions, receipts, and learn from the match
     if (status === 'approved') {
       const currentMatch = matches.find(m => m.bankTransaction.id === matchId)
       
-      if (currentMatch && category) {
+      if (currentMatch && category && categoryRules) {
         // Learn from the approved categorization
         const updatedRules = learnFromApprovedMatch(
           currentMatch.bankTransaction,
@@ -87,18 +90,23 @@ function App() {
         )
         setCategoryRules(updatedRules)
         
-        // Update rule usage statistics if a rule was matched
-        // This would be enhanced to track which rule was actually used
-        toast.success(`Match approved and categorization learned`)
+        // If feedback was provided, show additional success message
+        if (feedback && feedback.trim()) {
+          toast.success(`Match approved with training feedback - system will learn from this pattern`)
+        } else {
+          toast.success(`Match approved and categorization learned`)
+        }
       }
       
-      const { updatedBankTransactions, updatedReceipts } = applyMatches(
-        matches.map(m => m.bankTransaction.id === matchId ? { ...m, status } : m),
-        bankTransactions,
-        receipts
-      )
-      setBankTransactions(updatedBankTransactions)
-      setReceipts(updatedReceipts)
+      if (bankTransactions && receipts) {
+        const { updatedBankTransactions, updatedReceipts } = applyMatches(
+          matches.map(m => m.bankTransaction.id === matchId ? { ...m, status } : m),
+          bankTransactions,
+          receipts
+        )
+        setBankTransactions(updatedBankTransactions)
+        setReceipts(updatedReceipts)
+      }
     }
   }
   
@@ -133,29 +141,29 @@ function App() {
                   <p className="text-muted-foreground">Bank Txns</p>
                 </div>
                 <div className="text-center">
-                  <p className="font-semibold text-lg">{receipts.length}</p>
+                  <p className="font-semibold text-lg">{receipts?.length || 0}</p>
                   <p className="text-muted-foreground">Receipts</p>
                 </div>
                 <div className="text-center">
                   <p className="font-semibold text-lg text-green-600">
-                    {matches.filter(m => m.status === 'approved').length}
+                    {matches?.filter(m => m.status === 'approved').length || 0}
                   </p>
                   <p className="text-muted-foreground">Matched</p>
                 </div>
                 <div className="text-center">
                   <p className="font-semibold text-lg text-orange-600">
-                    {matches.filter(m => m.status === 'pending').length}
+                    {matches?.filter(m => m.status === 'pending').length || 0}
                   </p>
                   <p className="text-muted-foreground">Pending</p>
                 </div>
                 <div className="text-center">
                   <p className="font-semibold text-lg text-blue-600">
-                    {matches.filter(m => m.bankTransaction.category || m.suggestedReceipt?.category).length}
+                    {matches?.filter(m => m.bankTransaction.category || m.suggestedReceipt?.category).length || 0}
                   </p>
                   <p className="text-muted-foreground">Auto-Cat</p>
                 </div>
                 <div className="text-center">
-                  <p className="font-semibold text-lg text-purple-600">{categoryRules.length}</p>
+                  <p className="font-semibold text-lg text-purple-600">{categoryRules?.length || 0}</p>
                   <p className="text-muted-foreground">Rules</p>
                 </div>
               </div>
@@ -176,15 +184,15 @@ function App() {
               <span className="hidden sm:inline">Receipts</span>
             </TabsTrigger>
             <TabsTrigger value="matching" className="flex items-center gap-2">
-              <ArrowLeftRight size={16} />
+              <ArrowsLeftRight size={16} />
               <span className="hidden sm:inline">Match</span>
             </TabsTrigger>
             <TabsTrigger value="categories" className="flex items-center gap-2">
-              <Settings size={16} />
+              <Gear size={16} />
               <span className="hidden sm:inline">Rules</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
-              <BarChart3 size={16} />
+              <ChartBar size={16} />
               <span className="hidden sm:inline">Reports</span>
             </TabsTrigger>
             <TabsTrigger value="export" className="flex items-center gap-2">
@@ -232,7 +240,7 @@ function App() {
                         <div>
                           <p className="text-sm text-muted-foreground">Matched</p>
                           <p className="text-xl font-bold text-green-600">
-                            {bankTransactions.filter(t => t.matched).length}
+                            {bankTransactions?.filter(t => t.matched).length || 0}
                           </p>
                         </div>
                       </div>
@@ -251,16 +259,16 @@ function App() {
           
           <TabsContent value="receipts">
             <ReceiptUpload 
-              receipts={receipts} 
+              receipts={receipts || []} 
               onReceiptsUpdate={(newReceipts) => setReceipts(newReceipts)} 
             />
           </TabsContent>
           
           <TabsContent value="matching">
             <div className="space-y-6">
-              <CategorizationInsights matches={matches} categoryRules={categoryRules} />
+              <CategorizationInsights matches={matches || []} categoryRules={categoryRules || []} />
               <TransactionMatching 
-                matches={matches}
+                matches={matches || []}
                 onMatchUpdate={handleMatchUpdate}
               />
             </div>
@@ -268,17 +276,17 @@ function App() {
           
           <TabsContent value="categories">
             <CategoryRulesManager 
-              rules={categoryRules}
+              rules={categoryRules || []}
               onRulesUpdate={setCategoryRules}
             />
           </TabsContent>
           
           <TabsContent value="reports">
-            <SpendingReport matches={matches} />
+            <SpendingReport matches={matches || []} />
           </TabsContent>
           
           <TabsContent value="export">
-            <ExportData matches={matches} />
+            <ExportData matches={matches || []} />
           </TabsContent>
         </Tabs>
       </div>

@@ -34,6 +34,18 @@ export interface TransactionMatch {
   status: 'pending' | 'approved' | 'rejected'
 }
 
+export interface CategoryRule {
+  id: string
+  name: string
+  category: Category
+  patterns: string[]
+  keywords: string[]
+  confidence: number
+  createdBy: 'system' | 'user'
+  usageCount: number
+  lastUsed?: string
+}
+
 export interface User {
   id: string
   name: string

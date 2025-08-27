@@ -1,29 +1,42 @@
 import React, { useState } from 'react'
-import { Check, X, Eye, ArrowRight, Zap, Eye as EyeIcon, Bot } from '@phosphor-icons/react'
+import { Check, X, Eye, ArrowRight, Lightning, Eye as EyeIcon, Robot, Brain, TrendUp, Target } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import type { TransactionMatch, Category } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
 
 interface TransactionMatchingProps {
   matches: TransactionMatch[]
-  onMatchUpdate: (matchId: string, status: 'approved' | 'rejected', category?: Category) => void
+  onMatchUpdate: (matchId: string, status: 'approved' | 'rejected', category?: Category, feedback?: string) => void
 }
 
 export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatchingProps) {
   const [selectedCategory, setSelectedCategory] = useState<{[key: string]: Category}>({})
   const [showRejected, setShowRejected] = useState(false)
+  const [feedbackText, setFeedbackText] = useState<{[key: string]: string}>({})
+  const [showTrainingDialog, setShowTrainingDialog] = useState<string | null>(null)
   
   const pendingMatches = matches.filter(m => m.status === 'pending')
   const approvedMatches = matches.filter(m => m.status === 'approved')
   const rejectedMatches = matches.filter(m => m.status === 'rejected')
   
-  const handleApprove = (matchId: string) => {
+  // Calculate training metrics
+  const autoCategorizationRate = matches.length > 0 
+    ? Math.round((matches.filter(m => m.bankTransaction.category || m.suggestedReceipt?.category).length / matches.length) * 100)
+    : 0
+  
+  const highConfidenceMatches = pendingMatches.filter(m => m.matchScore >= 80 && m.suggestedReceipt)
+  const needsReviewMatches = pendingMatches.filter(m => m.matchScore < 60 || !m.suggestedReceipt)
+  
+  const handleApprove = (matchId: string, withFeedback = false) => {
     const match = matches.find(m => m.bankTransaction.id === matchId)
     if (!match) return
     
@@ -31,8 +44,50 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                     (match.suggestedReceipt?.category as Category) || 
                     'Miscellaneous'
     
-    onMatchUpdate(matchId, 'approved', category)
+    if (withFeedback) {
+      setShowTrainingDialog(matchId)
+      return
+    }
+    
+    const feedback = feedbackText[matchId]
+    onMatchUpdate(matchId, 'approved', category, feedback)
+    
+    // Clear local state
+    setSelectedCategory(prev => {
+      const { [matchId]: _, ...rest } = prev
+      return rest
+    })
+    setFeedbackText(prev => {
+      const { [matchId]: _, ...rest } = prev
+      return rest
+    })
+    
     toast.success(`Transaction approved and categorized as ${category}`)
+  }
+  
+  const handleApproveWithTraining = (matchId: string) => {
+    const match = matches.find(m => m.bankTransaction.id === matchId)
+    if (!match) return
+    
+    const category = selectedCategory[matchId] || 
+                    (match.suggestedReceipt?.category as Category) || 
+                    'Miscellaneous'
+    const feedback = feedbackText[matchId]
+    
+    onMatchUpdate(matchId, 'approved', category, feedback)
+    
+    // Clear state and close dialog
+    setSelectedCategory(prev => {
+      const { [matchId]: _, ...rest } = prev
+      return rest
+    })
+    setFeedbackText(prev => {
+      const { [matchId]: _, ...rest } = prev
+      return rest
+    })
+    setShowTrainingDialog(null)
+    
+    toast.success('Match approved and training data recorded for better categorization')
   }
   
   const handleReject = (matchId: string) => {
@@ -47,7 +102,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
       const category = selectedCategory[match.bankTransaction.id] || 
                       (match.suggestedReceipt?.category as Category) ||
                       guessCategory(match.suggestedReceipt?.merchant || match.bankTransaction.description)
-      onMatchUpdate(match.bankTransaction.id, 'approved', category)
+      onMatchUpdate(match.bankTransaction.id, 'approved', category, 'Bulk approved - high confidence match')
     })
     
     if (highConfidenceMatches.length > 0) {
@@ -115,7 +170,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
   
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
@@ -126,18 +181,29 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CardTitle className="text-sm font-medium">Auto-Categorized</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{approvedMatches.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{autoCategorizationRate}%</div>
+            <p className="text-xs text-muted-foreground">System confidence</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+            <CardTitle className="text-sm font-medium">High Confidence</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{rejectedMatches.length}</div>
+            <div className="text-2xl font-bold text-green-600">{highConfidenceMatches.length}</div>
+            <p className="text-xs text-muted-foreground">Ready for bulk approval</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Needs Review</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{needsReviewMatches.length}</div>
+            <p className="text-xs text-muted-foreground">Manual verification needed</p>
           </CardContent>
         </Card>
       </div>
@@ -154,7 +220,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                   size="sm"
                   className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                 >
-                  <Zap size={14} className="mr-1" />
+                  <Lightning size={14} className="mr-1" />
                   Auto-Approve High Confidence
                 </Button>
                 <Button
@@ -241,7 +307,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                         </Select>
                         {(match.bankTransaction.category || match.suggestedReceipt?.category) && (
                           <div className="flex items-center gap-1 text-xs text-green-600">
-                            <Bot size={12} />
+                            <Robot size={12} />
                             <span>Auto-categorized</span>
                           </div>
                         )}
@@ -302,7 +368,17 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                           onClick={() => handleApprove(match.bankTransaction.id)}
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          <Check size={14} />
+                          <Check size={14} className="mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleApprove(match.bankTransaction.id, true)}
+                          className="border-green-200 text-green-700 hover:bg-green-50"
+                        >
+                          <Brain size={14} className="mr-1" />
+                          Train
                         </Button>
                         <Button
                           size="sm"
@@ -375,6 +451,112 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
             </div>
           </CardContent>
         </Card>
+      )}
+      
+      {/* Training Feedback Dialog */}
+      {showTrainingDialog && (
+        <Dialog open={!!showTrainingDialog} onOpenChange={() => setShowTrainingDialog(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-blue-500" />
+                Train Categorization System
+              </DialogTitle>
+              <DialogDescription>
+                Help improve automatic categorization by providing additional context about this transaction.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {(() => {
+              const match = matches.find(m => m.bankTransaction.id === showTrainingDialog)
+              if (!match) return null
+              
+              const currentCategory = selectedCategory[showTrainingDialog] || 
+                                    (match.suggestedReceipt?.category as Category) || 
+                                    'Miscellaneous'
+              
+              return (
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Bank Transaction</Label>
+                      <div className="p-3 bg-muted rounded-lg space-y-1">
+                        <p className="font-medium">{formatAmount(match.bankTransaction.amount)}</p>
+                        <p className="text-sm text-muted-foreground">{match.bankTransaction.date}</p>
+                        <p className="text-sm">{match.bankTransaction.description}</p>
+                      </div>
+                    </div>
+                    
+                    {match.suggestedReceipt && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Matched Receipt</Label>
+                        <div className="p-3 bg-muted rounded-lg space-y-1">
+                          <p className="font-medium">{match.suggestedReceipt.merchant}</p>
+                          <p className="text-sm text-muted-foreground">{match.suggestedReceipt.date}</p>
+                          <p className="text-sm">{formatAmount(match.suggestedReceipt.amount)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Selected Category</Label>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-sm">
+                          {currentCategory}
+                        </Badge>
+                        {(match.bankTransaction.category || match.suggestedReceipt?.category) && (
+                          <div className="flex items-center gap-1 text-xs text-blue-600">
+                            <Robot size={12} />
+                            <span>Auto-detected</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="training-feedback">
+                        Training Feedback <span className="text-muted-foreground">(Optional)</span>
+                      </Label>
+                      <Textarea
+                        id="training-feedback"
+                        placeholder="Provide context about why this transaction belongs to this category. For example: 'This is a monthly utility bill payment' or 'Regular grocery shopping at local store'. This helps the system learn better patterns."
+                        value={feedbackText[showTrainingDialog] || ''}
+                        onChange={(e) => setFeedbackText(prev => ({
+                          ...prev,
+                          [showTrainingDialog]: e.target.value
+                        }))}
+                        className="min-h-[80px]"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This feedback helps the system learn patterns for future automatic categorization.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowTrainingDialog(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => handleApproveWithTraining(showTrainingDialog)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <TrendUp size={14} className="mr-2" />
+                      Approve & Train System
+                    </Button>
+                  </div>
+                </div>
+              )
+            })()}
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

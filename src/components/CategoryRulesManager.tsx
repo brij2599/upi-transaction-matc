@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Trash2, Bot, User, TrendingUp } from '@phosphor-icons/react'
+import { Plus, Trash, Robot, User, TrendUp } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -69,7 +69,7 @@ export function CategoryRulesManager({ rules, onRulesUpdate }: CategoryRulesMana
   
   const getRuleIcon = (createdBy: 'system' | 'user') => {
     return createdBy === 'system' ? (
-      <Bot size={14} className="text-blue-500" />
+      <Robot size={14} className="text-blue-500" />
     ) : (
       <User size={14} className="text-green-500" />
     )
@@ -82,7 +82,7 @@ export function CategoryRulesManager({ rules, onRulesUpdate }: CategoryRulesMana
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <TrendingUp size={16} className="text-primary" />
+              <TrendUp size={16} className="text-primary" />
               <div>
                 <p className="text-2xl font-bold">{stats.totalRules}</p>
                 <p className="text-xs text-muted-foreground">Total Rules</p>
@@ -94,7 +94,7 @@ export function CategoryRulesManager({ rules, onRulesUpdate }: CategoryRulesMana
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Bot size={16} className="text-blue-500" />
+              <Robot size={16} className="text-blue-500" />
               <div>
                 <p className="text-2xl font-bold">{stats.systemRules}</p>
                 <p className="text-xs text-muted-foreground">System Rules</p>
@@ -118,7 +118,7 @@ export function CategoryRulesManager({ rules, onRulesUpdate }: CategoryRulesMana
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <TrendingUp size={16} className="text-accent" />
+              <TrendUp size={16} className="text-accent" />
               <div>
                 <p className="text-2xl font-bold">
                   {stats.mostUsedRules.length > 0 ? stats.mostUsedRules[0].usageCount : 0}
@@ -237,7 +237,7 @@ export function CategoryRulesManager({ rules, onRulesUpdate }: CategoryRulesMana
             <div className="space-y-3">
               {rules.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Bot size={32} className="mx-auto mb-4" />
+                  <Robot size={32} className="mx-auto mb-4" />
                   <p>No categorization rules found</p>
                   <p className="text-sm">Add rules to enable automatic categorization</p>
                 </div>
@@ -288,7 +288,7 @@ export function CategoryRulesManager({ rules, onRulesUpdate }: CategoryRulesMana
                           onClick={() => handleDeleteRule(rule.id)}
                           className="text-destructive hover:text-destructive"
                         >
-                          <Trash2 size={14} />
+                          <Trash size={14} />
                         </Button>
                       )}
                     </div>

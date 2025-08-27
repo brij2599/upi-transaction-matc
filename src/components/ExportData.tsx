@@ -1,5 +1,5 @@
 import React from 'react'
-import { Download, Calendar, Filter } from '@phosphor-icons/react'
+import { Download, Calendar, Funnel } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'

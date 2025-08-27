@@ -1,5 +1,5 @@
-import type { BankTransaction, PhonePeReceipt, TransactionMatch, Category } from './types'
-import { categorizeTransaction, type CategoryRule } from './categorization'
+import type { BankTransaction, PhonePeReceipt, TransactionMatch, Category, CategoryRule } from './types'
+import { categorizeTransaction } from './categorization'
 
 /**
  * Transaction matching service that finds potential PhonePe receipt matches 

@@ -1,21 +1,9 @@
-import type { BankTransaction, PhonePeReceipt, Category } from './types'
+import type { BankTransaction, PhonePeReceipt, Category, CategoryRule } from './types'
 
 /**
  * Automatic transaction categorization service based on merchant patterns,
  * keywords, and user-defined rules that learn from approved matches
  */
-
-export interface CategoryRule {
-  id: string
-  name: string
-  category: Category
-  patterns: string[]
-  keywords: string[]
-  confidence: number
-  createdBy: 'system' | 'user'
-  usageCount: number
-  lastUsed?: string
-}
 
 // Default categorization rules based on common merchant patterns
 const DEFAULT_RULES: Omit<CategoryRule, 'id' | 'usageCount' | 'lastUsed'>[] = [
