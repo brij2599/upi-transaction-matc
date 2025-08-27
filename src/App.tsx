@@ -11,6 +11,7 @@ import { ExportData } from '@/components/ExportData'
 import { SpendingReport } from '@/components/SpendingReport'
 import { CategoryRulesManager } from '@/components/CategoryRulesManager'
 import { CategorizationInsights } from '@/components/CategorizationInsights'
+import { BulkTraining } from '@/components/BulkTraining'
 import { useKV } from '@github/spark/hooks'
 import type { PhonePeReceipt, BankTransaction, TransactionMatch, Category, CategoryRule } from '@/lib/types'
 import { generateMatches, applyMatches } from '@/lib/matching'
@@ -94,6 +95,8 @@ function App() {
         // Show different success messages based on feedback complexity
         if (feedback && feedback.includes('[TRAINING:')) {
           toast.success(`Match approved with advanced training - enhanced system learning from detailed feedback`)
+        } else if (feedback && feedback.includes('[BULK_TRAINING:')) {
+          // Don't show individual messages for bulk operations - handled in bulk function
         } else if (feedback && feedback.trim()) {
           toast.success(`Match approved with training feedback - system will learn from this pattern`)
         } else {
@@ -104,6 +107,56 @@ function App() {
       if (bankTransactions && receipts) {
         const { updatedBankTransactions, updatedReceipts } = applyMatches(
           matches.map(m => m.bankTransaction.id === matchId ? { ...m, status } : m),
+          bankTransactions,
+          receipts
+        )
+        setBankTransactions(updatedBankTransactions)
+        setReceipts(updatedReceipts)
+      }
+    }
+  }
+  
+  const handleBulkMatchUpdate = (matchIds: string[], status: 'approved' | 'rejected', category?: Category, feedback?: string) => {
+    if (!matches || matchIds.length === 0) return
+    
+    setMatches(currentMatches => {
+      if (!currentMatches) return []
+      return currentMatches.map(match => {
+        if (matchIds.includes(match.bankTransaction.id)) {
+          return { 
+            ...match, 
+            status,
+            bankTransaction: category ? { ...match.bankTransaction, category } : match.bankTransaction
+          }
+        }
+        return match
+      })
+    })
+    
+    // If approved, process all matches for learning and updates
+    if (status === 'approved' && category && categoryRules) {
+      let updatedRules = [...categoryRules]
+      
+      // Learn from each approved match in the bulk operation
+      matchIds.forEach(matchId => {
+        const currentMatch = matches.find(m => m.bankTransaction.id === matchId)
+        if (currentMatch) {
+          updatedRules = learnFromApprovedMatch(
+            currentMatch.bankTransaction,
+            currentMatch.suggestedReceipt,
+            category,
+            updatedRules,
+            feedback // Pass the bulk training feedback
+          )
+        }
+      })
+      
+      setCategoryRules(updatedRules)
+      
+      // Update bank transactions and receipts
+      if (bankTransactions && receipts) {
+        const { updatedBankTransactions, updatedReceipts } = applyMatches(
+          matches.map(m => matchIds.includes(m.bankTransaction.id) ? { ...m, status } : m),
           bankTransactions,
           receipts
         )
@@ -177,7 +230,7 @@ function App() {
       
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList className="grid grid-cols-6 w-full max-w-4xl">
+          <TabsList className="grid grid-cols-7 w-full max-w-5xl">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload size={16} />
               <span className="hidden sm:inline">Upload</span>
@@ -189,6 +242,10 @@ function App() {
             <TabsTrigger value="matching" className="flex items-center gap-2">
               <ArrowsLeftRight size={16} />
               <span className="hidden sm:inline">Match</span>
+            </TabsTrigger>
+            <TabsTrigger value="bulk" className="flex items-center gap-2">
+              <Play size={16} />
+              <span className="hidden sm:inline">Bulk</span>
             </TabsTrigger>
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <Gear size={16} />
@@ -275,6 +332,13 @@ function App() {
                 onMatchUpdate={handleMatchUpdate}
               />
             </div>
+          </TabsContent>
+          
+          <TabsContent value="bulk">
+            <BulkTraining 
+              matches={matches || []}
+              onBulkMatchUpdate={handleBulkMatchUpdate}
+            />
           </TabsContent>
           
           <TabsContent value="categories">

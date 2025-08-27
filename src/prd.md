@@ -33,12 +33,18 @@
 ### Automatic Categorization System
 - **Rule-Based Engine**: Comprehensive categorization rules based on merchant patterns and keywords
 - **Learning Algorithm**: System learns from user approvals to improve future categorizations
+- **Bulk Learning**: Enhanced learning from multiple similar transactions processed together
 - **Custom Rules**: User-defined categorization rules for specific spending patterns
+- **Recurring Transaction Detection**: Automatic identification and priority handling of recurring payments
+- **Pattern Application**: Smart application of learned patterns to future similar transactions
 - **Category Management**: 8 predefined categories with ability to expand based on user needs
 
 ### Review & Approval Workflow
 - **Visual Match Review**: Side-by-side comparison of bank transactions and PhonePe receipts
-- **Bulk Operations**: Approve multiple high-confidence matches simultaneously
+- **Individual Training Mode**: Detailed feedback system for single transaction categorization
+- **Bulk Training Mode**: Process multiple similar transactions with shared categorization rules
+- **Similar Transaction Grouping**: Automatic identification of transaction groups for efficient processing
+- **Advanced Training Options**: Recurring transaction marking, confidence levels, and pattern application settings
 - **Category Override**: Manual category assignment with learning integration
 - **Receipt Preview**: Full receipt image preview for verification
 
@@ -101,8 +107,10 @@
 ### Categorization Rules Engine
 - **System Rules**: 15+ predefined rules covering common merchants and transaction types
 - **User Learning**: Automatic rule creation and enhancement based on user approvals
+- **Bulk Training**: Enhanced learning from multiple similar transactions processed simultaneously
 - **Pattern Matching**: Merchant name patterns and keyword-based classification
-- **Confidence Scoring**: Weighted scoring based on pattern match quality
+- **Recurring Detection**: Special handling and prioritization of recurring transactions
+- **Confidence Scoring**: Weighted scoring based on pattern match quality and user feedback
 
 ### Data Persistence
 - **Transaction Storage**: Persistent storage of bank transactions and receipts
@@ -116,20 +124,31 @@
 - **Duplicate Detection**: Prevent duplicate transaction processing
 - **Data Validation**: Ensure data consistency and format compliance
 
+### Bulk Training System
+- **Similar Transaction Detection**: Automatic grouping of transactions by merchant patterns
+- **Batch Categorization**: Apply single category to multiple selected transactions
+- **Enhanced Training Options**: Recurring transaction marking, confidence levels, pattern application settings
+- **Comprehensive Feedback**: Detailed context input for improving categorization rules across multiple transactions
+- **Filter & Select Interface**: Advanced filtering by merchant, amount range, and other criteria for efficient selection
+- **Training Impact Preview**: Clear visibility into how bulk training will affect future categorization rules
+
 ## User Interface Flow
 
 1. **Upload Phase**: Users upload bank statements and PhonePe receipts
 2. **Processing Phase**: System automatically matches transactions and applies categorization
-3. **Review Phase**: Users review matches, approve/reject, and adjust categories
-4. **Analysis Phase**: Generated reports and spending insights
-5. **Export Phase**: Download enriched transaction data
+3. **Individual Review Phase**: Users review individual matches, approve/reject, and adjust categories with detailed training
+4. **Bulk Training Phase**: Users select similar transactions and apply categorization rules in batch with enhanced feedback
+5. **Analysis Phase**: Generated reports and spending insights based on processed transactions
+6. **Export Phase**: Download enriched transaction data with all categorization enhancements
 
 ## Success Metrics
 
 - **Matching Accuracy**: >90% correct matches on amount+date correlation
 - **Categorization Rate**: >70% transactions automatically categorized correctly
+- **Bulk Training Efficiency**: Process 10+ similar transactions with single training session
 - **User Efficiency**: 80%+ reduction in manual reconciliation time
-- **System Learning**: Improving categorization accuracy over time through user feedback
+- **System Learning**: Improving categorization accuracy over time through individual and bulk feedback
+- **Training Effectiveness**: Reduced manual intervention needed for similar future transactions
 
 ## Edge Cases & Problem Scenarios
 

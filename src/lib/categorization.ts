@@ -249,10 +249,16 @@ export function learnFromApprovedMatch(
   const description = transaction.description || ''
   
   // Parse training feedback for additional insights
-  const shouldCreateRule = !trainingFeedback?.includes('[TRAINING:') || trainingFeedback.includes('Create new categorization rule')
-  const isRecurring = trainingFeedback?.includes('This is a recurring transaction') || false
-  const confidenceLevel = trainingFeedback?.includes('Confidence level: high') ? 'high' :
-                          trainingFeedback?.includes('Confidence level: low') ? 'low' : 'medium'
+  const isBulkTraining = trainingFeedback?.includes('[BULK_TRAINING:')
+  const shouldCreateRule = !trainingFeedback?.includes('[TRAINING:') || 
+                          !trainingFeedback?.includes('[BULK_TRAINING:') || 
+                          trainingFeedback.includes('Create new categorization rule') ||
+                          trainingFeedback.includes('Create bulk categorization rules')
+  const isRecurring = trainingFeedback?.includes('This is a recurring transaction') || 
+                     trainingFeedback?.includes('These are recurring transactions') || false
+  const applyToSimilar = trainingFeedback?.includes('Apply to similar future transactions') || false
+  const confidenceLevel = trainingFeedback?.includes('Confidence: high') ? 'high' :
+                          trainingFeedback?.includes('Confidence: low') ? 'low' : 'medium'
   
   // Create new keywords from the transaction and feedback
   const baseKeywords = [
@@ -281,6 +287,9 @@ export function learnFromApprovedMatch(
   // Boost confidence for recurring transactions
   if (isRecurring) baseConfidence = Math.min(0.95, baseConfidence + 0.1)
   
+  // Boost confidence for bulk training with similar pattern application
+  if (isBulkTraining && applyToSimilar) baseConfidence = Math.min(0.95, baseConfidence + 0.05)
+  
   // Find existing rule for this category that might be enhanced
   const existingRule = updatedRules.find(rule => 
     rule.category === approvedCategory && 
@@ -299,7 +308,8 @@ export function learnFromApprovedMatch(
     
     const enhancedRule = {
       ...existingRule,
-      name: isRecurring ? `${existingRule.name} (Recurring)` : existingRule.name,
+      name: isRecurring ? `${existingRule.name} (Recurring)` : 
+            isBulkTraining ? `${existingRule.name} (Bulk Enhanced)` : existingRule.name,
       keywords: enhancedKeywords,
       patterns: enhancedPatterns,
       usageCount: existingRule.usageCount + 1,
@@ -308,6 +318,8 @@ export function learnFromApprovedMatch(
       metadata: {
         ...existingRule.metadata,
         isRecurring,
+        applyToSimilar,
+        isBulkTrained: isBulkTraining,
         trainingFeedback: trainingFeedback?.substring(0, 200), // Store first 200 chars of feedback
         lastTrainingUpdate: new Date().toISOString()
       }
@@ -317,9 +329,11 @@ export function learnFromApprovedMatch(
     updatedRules[ruleIndex] = enhancedRule
   } else if (shouldCreateRule) {
     // Create new user-defined rule with training insights
-    const ruleName = isRecurring ? 
-      `Recurring ${approvedCategory} - ${merchantName || 'User Rule'}` :
-      `User Rule - ${approvedCategory} (${merchantName || 'Custom'})`
+    const ruleName = isBulkTraining ? 
+      `Bulk Rule - ${approvedCategory} (${merchantName || 'Multiple'})` :
+      isRecurring ? 
+        `Recurring ${approvedCategory} - ${merchantName || 'User Rule'}` :
+        `User Rule - ${approvedCategory} (${merchantName || 'Custom'})`
     
     const newRule: CategoryRule = {
       id: generateRuleId(),
@@ -333,6 +347,8 @@ export function learnFromApprovedMatch(
       lastUsed: new Date().toISOString(),
       metadata: {
         isRecurring,
+        applyToSimilar,
+        isBulkTrained: isBulkTraining,
         trainingFeedback: trainingFeedback?.substring(0, 200),
         createdFromTraining: true,
         confidenceLevel

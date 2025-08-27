@@ -46,6 +46,8 @@ export interface CategoryRule {
   lastUsed?: string
   metadata?: {
     isRecurring?: boolean
+    applyToSimilar?: boolean
+    isBulkTrained?: boolean
     trainingFeedback?: string
     createdFromTraining?: boolean
     confidenceLevel?: 'low' | 'medium' | 'high'
