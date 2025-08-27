@@ -60,7 +60,9 @@ export function parseCSV(csvText: string): BankTransaction[] {
         date,
         amount,
         description,
-        utr
+        utr,
+        vpa: upi?.vpa,
+        city: upi?.city
       })
     }
   }
@@ -117,7 +119,9 @@ export async function parseExcel(file: File): Promise<BankTransaction[]> {
         date,
         amount,
         description,
-        utr
+        utr,
+        vpa: upi?.vpa,
+        city: upi?.city
       })
     }
   })
