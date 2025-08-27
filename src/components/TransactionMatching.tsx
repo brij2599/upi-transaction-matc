@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, X, Eye, ArrowRight } from '@phosphor-icons/react'
+import { Check, X, Eye, ArrowRight, Zap, Eye as EyeIcon } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +17,7 @@ interface TransactionMatchingProps {
 
 export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatchingProps) {
   const [selectedCategory, setSelectedCategory] = useState<{[key: string]: Category}>({})
+  const [showRejected, setShowRejected] = useState(false)
   
   const pendingMatches = matches.filter(m => m.status === 'pending')
   const approvedMatches = matches.filter(m => m.status === 'approved')
@@ -31,12 +32,57 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                     'Miscellaneous'
     
     onMatchUpdate(matchId, 'approved', category)
-    toast.success('Transaction match approved')
+    toast.success(`Transaction approved and categorized as ${category}`)
   }
   
   const handleReject = (matchId: string) => {
     onMatchUpdate(matchId, 'rejected')
     toast.success('Transaction match rejected')
+  }
+  
+  const handleBulkApprove = () => {
+    const highConfidenceMatches = pendingMatches.filter(m => m.matchScore >= 80 && m.suggestedReceipt)
+    
+    highConfidenceMatches.forEach(match => {
+      const category = selectedCategory[match.bankTransaction.id] || 
+                      (match.suggestedReceipt?.category as Category) ||
+                      guessCategory(match.suggestedReceipt?.merchant || match.bankTransaction.description)
+      onMatchUpdate(match.bankTransaction.id, 'approved', category)
+    })
+    
+    if (highConfidenceMatches.length > 0) {
+      toast.success(`Auto-approved ${highConfidenceMatches.length} high-confidence matches`)
+    } else {
+      toast.info('No high-confidence matches found for bulk approval')
+    }
+  }
+  
+  const guessCategory = (merchantOrDescription: string): Category => {
+    const text = merchantOrDescription.toLowerCase()
+    
+    if (text.includes('swiggy') || text.includes('zomato') || text.includes('food') || text.includes('restaurant')) {
+      return 'Food & Dining'
+    }
+    if (text.includes('uber') || text.includes('ola') || text.includes('metro') || text.includes('petrol') || text.includes('fuel')) {
+      return 'Travel & Transport'
+    }
+    if (text.includes('amazon') || text.includes('flipkart') || text.includes('shop') || text.includes('mall')) {
+      return 'Shopping'
+    }
+    if (text.includes('netflix') || text.includes('spotify') || text.includes('entertainment') || text.includes('movie')) {
+      return 'Entertainment'
+    }
+    if (text.includes('electric') || text.includes('gas') || text.includes('water') || text.includes('bill') || text.includes('utility')) {
+      return 'Utilities & Bills'
+    }
+    if (text.includes('hospital') || text.includes('medical') || text.includes('pharmacy') || text.includes('doctor')) {
+      return 'Healthcare'
+    }
+    if (text.includes('school') || text.includes('education') || text.includes('course') || text.includes('fee')) {
+      return 'Education'
+    }
+    
+    return 'Miscellaneous'
   }
   
   const formatAmount = (amount: number) => {
@@ -97,7 +143,28 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
       {pendingMatches.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Pending Matches</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Pending Matches</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleBulkApprove}
+                  variant="outline"
+                  size="sm"
+                  className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                >
+                  <Zap size={14} className="mr-1" />
+                  Auto-Approve High Confidence
+                </Button>
+                <Button
+                  onClick={() => setShowRejected(!showRejected)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <EyeIcon size={14} className="mr-1" />
+                  {showRejected ? 'Hide' : 'Show'} Rejected
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -147,7 +214,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={selectedCategory[match.bankTransaction.id] || ''}
+                        value={selectedCategory[match.bankTransaction.id] || guessCategory(match.suggestedReceipt?.merchant || match.bankTransaction.description)}
                         onValueChange={(value: Category) => 
                           setSelectedCategory(prev => ({
                             ...prev,
@@ -242,7 +309,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
         </Card>
       )}
       
-      {(approvedMatches.length > 0 || rejectedMatches.length > 0) && (
+      {(approvedMatches.length > 0 || (rejectedMatches.length > 0 && showRejected)) && (
         <Card>
           <CardHeader>
             <CardTitle>Processed Matches</CardTitle>
@@ -271,7 +338,7 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                 </div>
               ))}
               
-              {rejectedMatches.map((match) => (
+              {showRejected && rejectedMatches.map((match) => (
                 <div
                   key={match.bankTransaction.id}
                   className="flex items-center justify-between p-3 bg-red-50 rounded-lg border"

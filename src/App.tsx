@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Upload, Camera, ArrowLeftRight, Download } from '@phosphor-icons/react'
+import { Upload, Camera, ArrowLeftRight, Download, BarChart3, Play } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,9 +8,11 @@ import { FileUploadSimple } from '@/components/FileUploadSimple'
 import { ReceiptUpload } from '@/components/ReceiptUpload'
 import { TransactionMatching } from '@/components/TransactionMatching'
 import { ExportData } from '@/components/ExportData'
+import { SpendingReport } from '@/components/SpendingReport'
 import { useKV } from '@github/spark/hooks'
 import type { PhonePeReceipt, BankTransaction, TransactionMatch, Category } from '@/lib/types'
 import { generateMatches, applyMatches } from '@/lib/matching'
+import { loadDemoData } from '@/lib/demo-data'
 
 function App() {
   const [transactionCount, setTransactionCount] = useState(0)
@@ -65,6 +67,14 @@ function App() {
     setTransactionCount(transactions.length)
   }
   
+  const handleLoadDemoData = () => {
+    const { bankTransactions, receipts, message } = loadDemoData()
+    setBankTransactions(bankTransactions)
+    setReceipts(receipts)
+    setTransactionCount(bankTransactions.length)
+    toast.success(message)
+  }
+  
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="top-right" />
@@ -106,7 +116,7 @@ function App() {
       
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="upload" className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsList className="grid grid-cols-5 w-full max-w-2xl">
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload size={16} />
               Upload
@@ -118,6 +128,10 @@ function App() {
             <TabsTrigger value="matching" className="flex items-center gap-2">
               <ArrowLeftRight size={16} />
               Match
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <BarChart3 size={16} />
+              Reports
             </TabsTrigger>
             <TabsTrigger value="export" className="flex items-center gap-2">
               <Download size={16} />
@@ -138,10 +152,21 @@ function App() {
                 </CardHeader>
                 <CardContent>
                   {transactionCount === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-center py-8 text-muted-foreground space-y-4">
                       <Upload size={32} className="mx-auto mb-4" />
-                      <p>No bank transactions uploaded yet</p>
-                      <p className="text-sm mt-1">Upload a CSV file to get started</p>
+                      <div>
+                        <p>No bank transactions uploaded yet</p>
+                        <p className="text-sm mt-1">Upload a CSV file to get started</p>
+                      </div>
+                      <div className="pt-4">
+                        <Button onClick={handleLoadDemoData} variant="outline" className="w-full">
+                          <Play size={16} className="mr-2" />
+                          Load Demo Data
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Try the app with sample transactions and receipts
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -156,6 +181,12 @@ function App() {
                             {bankTransactions.filter(t => t.matched).length}
                           </p>
                         </div>
+                      </div>
+                      <div className="pt-4">
+                        <Button onClick={handleLoadDemoData} variant="outline" size="sm">
+                          <Play size={14} className="mr-2" />
+                          Reset with Demo Data
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -176,6 +207,10 @@ function App() {
               matches={matches}
               onMatchUpdate={handleMatchUpdate}
             />
+          </TabsContent>
+          
+          <TabsContent value="reports">
+            <SpendingReport matches={matches} />
           </TabsContent>
           
           <TabsContent value="export">
