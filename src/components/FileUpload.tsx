@@ -20,8 +20,8 @@ export function FileUpload({ onTransactionsUploaded }: FileUploadProps) {
     if (!files?.length) return
     
     const file = files[0]
-    if (!file.name.match(/\.(csv|xlsx?)$/i)) {
-      toast.error('Please upload a CSV or Excel file')
+    if (!file.name.match(/\.(csv|xlsx)$/i)) {
+      toast.error('Please upload a CSV (.csv) or Excel (.xlsx) file')
       return
     }
     
@@ -107,11 +107,11 @@ export function FileUpload({ onTransactionsUploaded }: FileUploadProps) {
               <Upload size={32} className="mx-auto text-muted-foreground mb-4" />
               <p className="font-medium mb-2">Drop your bank statement here</p>
               <p className="text-sm text-muted-foreground mb-4">
-                Supports CSV and Excel (.xlsx, .xls) files
+                Supports CSV (.csv) and Excel (.xlsx) files
               </p>
               <input
                 type="file"
-                accept=".csv,.xlsx,.xls"
+                accept=".csv,.xlsx"
                 onChange={(e) => handleFiles(e.target.files)}
                 className="hidden"
                 id="file-upload"
