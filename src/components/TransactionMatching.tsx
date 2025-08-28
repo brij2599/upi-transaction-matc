@@ -343,27 +343,32 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                         {match.suggestedReceipt && (
                           <Dialog>
                             <DialogTrigger asChild>
-                              <Button size="sm" variant="outline">
-                                <Eye size={14} />
+                              <Button size="sm" variant="outline" className="text-xs">
+                                <Eye size={14} className="mr-1" />
+                                View Receipt
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                               <DialogHeader>
-                                <DialogTitle>Receipt Preview</DialogTitle>
+                                <DialogTitle>View Receipt & OCR Data</DialogTitle>
                                 <DialogDescription>
-                                  Review the matched receipt details
+                                  Review the uploaded image and raw text extracted from the receipt
                                 </DialogDescription>
                               </DialogHeader>
-                              <div className="space-y-4">
+                              <div className="space-y-6">
                                 {match.suggestedReceipt.imageUrl && (
-                                  <div className="max-h-96 overflow-hidden rounded-lg">
-                                    <img
-                                      src={match.suggestedReceipt.imageUrl}
-                                      alt="Receipt"
-                                      className="w-full object-contain"
-                                    />
+                                  <div className="space-y-2">
+                                    <h4 className="font-medium">Receipt Image</h4>
+                                    <div className="max-h-96 overflow-hidden rounded-lg border">
+                                      <img
+                                        src={match.suggestedReceipt.imageUrl}
+                                        alt="Receipt"
+                                        className="w-full object-contain"
+                                      />
+                                    </div>
                                   </div>
                                 )}
+                                
                                 <div className="grid gap-4 md:grid-cols-2">
                                   <div>
                                     <h4 className="font-medium mb-2">Bank Transaction</h4>
@@ -381,9 +386,38 @@ export function TransactionMatching({ matches, onMatchUpdate }: TransactionMatch
                                       <p>Amount: {formatAmount(match.suggestedReceipt.amount)}</p>
                                       <p>Date: {match.suggestedReceipt.date}</p>
                                       {match.suggestedReceipt.utr && <p>UTR: {match.suggestedReceipt.utr}</p>}
+                                      {match.suggestedReceipt.category && (
+                                        <p>Category: {match.suggestedReceipt.category}</p>
+                                      )}
+                                      <p>OCR Confidence: {Math.round(match.suggestedReceipt.extractedData.confidence * 100)}%</p>
                                     </div>
                                   </div>
                                 </div>
+                                
+                                {match.suggestedReceipt.extractedData.rawText && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-medium">Raw OCR Text</h4>
+                                      <Badge variant="outline" className={
+                                        match.suggestedReceipt.extractedData.confidence >= 0.8 
+                                          ? "bg-green-100 text-green-800 border-green-200"
+                                          : match.suggestedReceipt.extractedData.confidence >= 0.6
+                                          ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                                          : "bg-red-100 text-red-800 border-red-200"
+                                      }>
+                                        {Math.round(match.suggestedReceipt.extractedData.confidence * 100)}% confidence
+                                      </Badge>
+                                    </div>
+                                    <div className="p-3 bg-muted rounded-lg border max-h-60 overflow-y-auto">
+                                      <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground leading-relaxed">
+                                        {match.suggestedReceipt.extractedData.rawText}
+                                      </pre>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      This is the raw text extracted from the receipt image using OCR. Higher confidence indicates better text recognition accuracy.
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             </DialogContent>
                           </Dialog>
