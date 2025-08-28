@@ -116,6 +116,7 @@ export function CategoriesAdmin({ onCategoriesUpdate }: CategoriesAdminProps) {
   const [categories, setCategories] = useKV<CategoryDefinition[]>('category-definitions', DEFAULT_CATEGORIES)
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [editingCategory, setEditingCategory] = useState<CategoryDefinition | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState<CategoryDefinition | null>(null)
   const [newCategory, setNewCategory] = useState({
     name: '',
     description: '',
@@ -192,7 +193,12 @@ export function CategoriesAdmin({ onCategoriesUpdate }: CategoriesAdminProps) {
     const updatedCategories = categories?.filter(cat => cat.id !== categoryId) || []
     setCategories(updatedCategories)
     onCategoriesUpdate?.(updatedCategories)
-    toast.success('Category deleted')
+    setDeletingCategory(null)
+    toast.success('Category deleted permanently')
+  }
+
+  const handleConfirmDelete = (category: CategoryDefinition) => {
+    setDeletingCategory(category)
   }
 
   const handleToggleCategory = (categoryId: string) => {
@@ -494,14 +500,54 @@ export function CategoriesAdmin({ onCategoriesUpdate }: CategoriesAdminProps) {
                         </Dialog>
                         
                         {!category.isDefault && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteCategory(category.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash size={14} />
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleConfirmDelete(category)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash size={14} />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Delete Category</DialogTitle>
+                                <DialogDescription>
+                                  Are you sure you want to delete the category "{category.name}"?
+                                  This action cannot be undone and will affect any transactions that use this category.
+                                </DialogDescription>
+                              </DialogHeader>
+                              
+                              <div className="py-4">
+                                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                                  <div 
+                                    className="w-4 h-4 rounded-full border"
+                                    style={{ backgroundColor: category.color }}
+                                  />
+                                  <span className="text-lg">{category.icon}</span>
+                                  <div>
+                                    <p className="font-medium">{category.name}</p>
+                                    <p className="text-sm text-muted-foreground">{category.description}</p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <DialogFooter>
+                                <Button variant="outline" onClick={() => setDeletingCategory(null)}>
+                                  Cancel
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  onClick={() => handleDeleteCategory(category.id)}
+                                >
+                                  <Trash size={14} className="mr-2" />
+                                  Delete Category
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
                         )}
                       </div>
                     </div>
@@ -515,8 +561,8 @@ export function CategoriesAdmin({ onCategoriesUpdate }: CategoriesAdminProps) {
           <Alert>
             <Tag className="h-4 w-4" />
             <AlertDescription>
-              Default categories cannot be deleted but can be deactivated. Custom categories can be fully managed.
-              Changes to categories will affect all existing and future transaction categorizations.
+              <strong>Category Management:</strong> Default categories can be deactivated but not deleted to maintain data integrity. 
+              Custom categories can be fully deleted with confirmation. Deleting categories will affect all transactions that use them.
             </AlertDescription>
           </Alert>
         </CardContent>
